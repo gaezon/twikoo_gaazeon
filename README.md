@@ -40,6 +40,7 @@ You can manually trigger the update check at any time:
 1.  Go to the **Actions** tab.
 2.  Select **Auto Update Twikoo**.
 3.  Click **Run workflow**.
+4.  (Optional) Check **Send a test notification** to verify Telegram integration.
 
 ---
 
@@ -81,3 +82,4 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 1.  进入 **Actions** 标签页。
 2.  选择 **Auto Update Twikoo**。
 3.  点击 **Run workflow**。
+4.  (可选) 勾选 **Send a test notification** 以验证 Telegram 集成。

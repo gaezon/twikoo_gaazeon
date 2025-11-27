@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '0 0 * * *' # Run daily at midnight UTC
   workflow_dispatch: # Allow manual trigger
+    inputs:
+      test_notification:
+        description: 'Send a test notification'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   update-twikoo:
@@ -71,3 +77,10 @@ jobs:
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_TO }} \
           -d text="⚠️ Warning: Twikoo Vercel repo has been inactive for over 50 days. GitHub Actions may pause this workflow soon. Please manually trigger a run or push a commit."
+
+      - name: Notify Telegram (Test)
+        if: github.event.inputs.test_notification == 'true'
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_TO }} \
+          -d text="🧪 Test Notification: Telegram integration is working correctly!"
