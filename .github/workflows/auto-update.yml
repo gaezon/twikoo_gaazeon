@@ -43,3 +43,31 @@ jobs:
           git add package.json
           git commit -m "chore: update twikoo-vercel to latest version"
           git push
+
+      - name: Notify Telegram (Success)
+        if: steps.check_updates.outputs.has_updates == 'true'
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_TO }} \
+          -d text="✅ Twikoo Vercel Updated! New version deployed."
+
+      - name: Check for staleness
+        id: check_stale
+        run: |
+          last_commit=$(git log -1 --format=%ct)
+          current_time=$(date +%s)
+          diff=$((current_time - last_commit))
+          days=$((diff / 86400))
+          echo "Days since last commit: $days"
+          if [ $days -gt 50 ]; then
+            echo "is_stale=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_stale=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify Telegram (Stale Warning)
+        if: steps.check_stale.outputs.is_stale == 'true'
+        run: |
+          curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
+          -d chat_id=${{ secrets.TELEGRAM_TO }} \
+          -d text="⚠️ Warning: Twikoo Vercel repo has been inactive for over 50 days. GitHub Actions may pause this workflow soon. Please manually trigger a run or push a commit."
