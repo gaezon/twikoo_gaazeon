@@ -55,7 +55,7 @@ jobs:
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_TO }} \
-          -d text="✅ Twikoo Vercel Updated! New version deployed."
+          -d text="✅ Twikoo Vercel 已更新！新版本已部署。"
 
       - name: Check for staleness
         id: check_stale
@@ -76,11 +76,11 @@ jobs:
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_TO }} \
-          -d text="⚠️ Warning: Twikoo Vercel repo has been inactive for over 50 days. GitHub Actions may pause this workflow soon. Please manually trigger a run or push a commit."
+          -d text="⚠️ 警告：Twikoo Vercel 仓库已超过 50 天未活跃。GitHub Actions 可能会暂停此工作流。请手动触发一次运行或推送一个提交。"
 
       - name: Notify Telegram (Test)
         if: github.event.inputs.test_notification == 'true'
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_TO }} \
-          -d text="🧪 Test Notification: Telegram integration is working correctly!"
+          -d text="🧪 测试通知：Telegram 集成工作正常！"
