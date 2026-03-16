@@ -256,24 +256,28 @@ jobs:
               release_url = releases[-1].get('html_url') or default_release_url
 
           message_lines = [
-              f'✅ Twikoo 已升级到 {to_version} 版本',
+              '✅ Twikoo 升级完成',
               '',
-              f'版本变更：{from_version} -> {to_version}',
+              f'📦 版本：{from_version} -> {to_version}',
+              '',
+              '✨ 升级重点',
           ]
 
           if summary_lines:
-              message_lines.append('升级重点：')
               for line in summary_lines:
-                  message_lines.append(f'- {line}')
+                  message_lines.append(f'• {line}')
           else:
-              message_lines.append('升级重点：请查看发布说明')
+              message_lines.append('• 请查看发布说明')
               if notification_error:
-                  message_lines.append(f'AI 总结失败：{notification_error}')
+                  message_lines.append(f'⚠️ AI 总结失败：{notification_error}')
 
           message_lines.extend([
               '',
-              f'发布说明：{release_url}',
-              f'版本对比：{compare_url}',
+              '🔗 发布说明',
+              release_url,
+              '',
+              '🔍 版本对比',
+              compare_url,
           ])
 
           message = '\n'.join(message_lines)
@@ -291,6 +295,7 @@ jobs:
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
           -d chat_id="${{ secrets.TELEGRAM_TO }}" \
+          -d disable_web_page_preview=true \
           --data-urlencode "text=${TELEGRAM_MESSAGE}"
 
       - name: Check for staleness
