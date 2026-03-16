@@ -18,7 +18,7 @@ This repository includes a GitHub Action workflow (`.github/workflows/auto-updat
 2. **Update Detection**: It checks for new versions of the `twikoo-vercel` dependency.
 3. **Auto-Commit**: If a new version is found, it updates `package.json` and commits the change.
 4. **Deployment**: The commit triggers a new deployment on Vercel.
-5. **Notifications**: You receive a Telegram notification upon successful update.
+5. **Notifications**: You receive a Telegram notification upon successful update, including the target version and an AI-generated summary of the upgrade highlights.
 
 #### Stale Repository Warning
 
@@ -36,6 +36,11 @@ To enable notifications, you must configure the following **Repository Secrets**
 | :--- | :--- |
 | `TELEGRAM_TOKEN` | Your Telegram Bot Token (from @BotFather). |
 | `TELEGRAM_TO` | The Chat ID (user or channel) where notifications should be sent. |
+| `OPENAI_API_KEY` | API key for your OpenAI-compatible endpoint, used to summarize release notes. |
+| `OPENAI_BASE_URL` | Base URL for the OpenAI-compatible API, for example `https://api.openai.com/v1`. |
+| `OPENAI_MODEL` | Model name used to generate the upgrade summary. |
+
+If the OpenAI-compatible configuration is unavailable or the request fails, the workflow still sends a basic Telegram notification with the version number and release links.
 
 ### Manual Trigger
 
@@ -63,7 +68,7 @@ You can manually trigger the update check at any time:
 2. **检测更新**：检查 `twikoo-vercel` 依赖是否有新版本。
 3. **自动提交**：如果发现新版本，它会更新 `package.json` 并提交更改。
 4. **部署**：提交操作会自动触发 Vercel 的新部署。
-5. **通知**：更新成功后，您会收到 Telegram 通知。
+5. **通知**：更新成功后，您会收到 Telegram 通知，其中会包含目标版本号和 AI 生成的升级重点摘要。
 
 #### 仓库活跃度警告
 
@@ -81,6 +86,11 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 | :--- | :--- |
 | `TELEGRAM_TOKEN` | 您的 Telegram Bot Token (从 @BotFather 获取)。 |
 | `TELEGRAM_TO` | 接收通知的 Chat ID (用户 ID 或频道 ID)。 |
+| `OPENAI_API_KEY` | OpenAI 兼容接口的 API Key，用于总结升级说明。 |
+| `OPENAI_BASE_URL` | OpenAI 兼容接口的基础地址，例如 `https://api.openai.com/v1`。 |
+| `OPENAI_MODEL` | 用于生成升级摘要的模型名称。 |
+
+如果 OpenAI 兼容接口未配置或调用失败，工作流仍会发送基础 Telegram 通知，并附带版本号与发布说明链接。
 
 ### 手动触发
 

@@ -23,10 +23,18 @@ jobs:
       - name: Install npm-check-updates
         run: npm install -g npm-check-updates
 
+      - name: Capture current version
+        id: current_version
+        run: |
+          current_version=$(node -p "require('./package.json').dependencies['twikoo-vercel']")
+          echo "value=$current_version" >> $GITHUB_OUTPUT
+
       - name: Check for updates
         id: check_updates
         run: |
           ncu -u twikoo-vercel
+          new_version=$(node -p "require('./package.json').dependencies['twikoo-vercel']")
+          echo "to_version=$new_version" >> $GITHUB_OUTPUT
           if git diff --exit-code package.json; then
             echo "No updates found"
             echo "has_updates=false" >> $GITHUB_OUTPUT
@@ -44,12 +52,194 @@ jobs:
           git commit -m "chore: update twikoo-vercel to latest version"
           git push
 
+      - name: Build Telegram notification
+        id: telegram_message
+        if: steps.check_updates.outputs.has_updates == 'true'
+        env:
+          FROM_VERSION: ${{ steps.current_version.outputs.value }}
+          TO_VERSION: ${{ steps.check_updates.outputs.to_version }}
+          GITHUB_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          import urllib.request
+
+          from_version = os.environ['FROM_VERSION'].strip()
+          to_version = os.environ['TO_VERSION'].strip()
+          github_token = os.environ.get('GITHUB_TOKEN', '').strip()
+          openai_api_key = os.environ.get('OPENAI_API_KEY', '').strip()
+          openai_base_url = os.environ.get('OPENAI_BASE_URL', '').strip().rstrip('/')
+          openai_model = os.environ.get('OPENAI_MODEL', '').strip()
+
+          compare_url = f'https://github.com/twikoojs/twikoo/compare/{from_version}...{to_version}'
+          default_release_url = f'https://github.com/twikoojs/twikoo/releases/tag/{to_version}'
+
+          def parse_version(value):
+              match = re.match(r'^v?(\d+)\.(\d+)\.(\d+)$', value or '')
+              if not match:
+                  return None
+              return tuple(int(part) for part in match.groups())
+
+          def fetch_json(url):
+              headers = {
+                  'Accept': 'application/vnd.github+json',
+                  'User-Agent': 'twikoo-gaazeon-updater',
+              }
+              if github_token:
+                  headers['Authorization'] = f'Bearer {github_token}'
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          def collect_releases():
+              lower = parse_version(from_version)
+              upper = parse_version(to_version)
+              if not lower or not upper:
+                  return []
+
+              releases = fetch_json('https://api.github.com/repos/twikoojs/twikoo/releases?per_page=100')
+              selected = []
+              for release in releases:
+                  tag_name = release.get('tag_name', '')
+                  parsed = parse_version(tag_name)
+                  if not parsed:
+                      continue
+                  if lower < parsed <= upper:
+                      selected.append(release)
+
+              selected.sort(key=lambda item: parse_version(item.get('tag_name', '')))
+              return selected
+
+          def summarize_with_ai(releases):
+              if not releases:
+                  return []
+              if not (openai_api_key and openai_base_url and openai_model):
+                  return []
+
+              notes = []
+              for release in releases:
+                  tag_name = release.get('tag_name', '')
+                  published_at = release.get('published_at', '')
+                  body = (release.get('body') or '').strip()
+                  if not body:
+                      continue
+                  notes.append(f'## {tag_name} ({published_at})\n{body}')
+
+              if not notes:
+                  return []
+
+              payload = {
+                  'model': openai_model,
+                  'temperature': 0.2,
+                  'messages': [
+                      {
+                          'role': 'system',
+                          'content': '你是发布说明助手，负责把多个版本的更新日志压缩成适合 Telegram 通知的中文升级重点。',
+                      },
+                      {
+                          'role': 'user',
+                          'content': (
+                              '请根据下面多个版本的 Twikoo 发布说明，总结 2 到 4 条适合 Telegram 通知的中文升级重点。\n'
+                              '要求：\n'
+                              '1. 每条单独一行，不要编号。\n'
+                              '2. 只保留用户可感知的新功能、重要修复、体验优化。\n'
+                              '3. 忽略 chore、deps、dependabot、New Contributors、纯链接。\n'
+                              '4. 不要编造不存在的信息。\n'
+                              '5. 如果没有明确可总结内容，只返回「本次主要为常规维护与兼容性更新」。\n\n'
+                              f'版本范围：{from_version} -> {to_version}\n\n'
+                              + '\n\n'.join(notes)
+                          ),
+                      },
+                  ],
+              }
+
+              request = urllib.request.Request(
+                  f'{openai_base_url}/chat/completions',
+                  data=json.dumps(payload).encode('utf-8'),
+                  headers={
+                      'Authorization': f'Bearer {openai_api_key}',
+                      'Content-Type': 'application/json',
+                  },
+              )
+
+              with urllib.request.urlopen(request, timeout=45) as response:
+                  data = json.load(response)
+
+              content = data['choices'][0]['message'].get('content', '')
+              if isinstance(content, list):
+                  content = ''.join(
+                      part.get('text', '') for part in content if isinstance(part, dict)
+                  )
+
+              lines = []
+              seen = set()
+              for raw_line in str(content).splitlines():
+                  line = raw_line.strip()
+                  if not line:
+                      continue
+                  line = re.sub(r'^[\-\*\d\.\)\s]+', '', line)
+                  line = line.strip().strip('。')
+                  if not line or line in seen:
+                      continue
+                  seen.add(line)
+                  lines.append(line)
+
+              return lines[:4]
+
+          try:
+              releases = collect_releases()
+          except Exception:
+              releases = []
+
+          try:
+              summary_lines = summarize_with_ai(releases)
+          except Exception:
+              summary_lines = []
+
+          release_url = default_release_url
+          if releases:
+              release_url = releases[-1].get('html_url') or default_release_url
+
+          message_lines = [
+              f'✅ Twikoo 已升级到 {to_version} 版本',
+              '',
+              f'版本变更：{from_version} -> {to_version}',
+          ]
+
+          if summary_lines:
+              message_lines.append('升级重点：')
+              for line in summary_lines:
+                  message_lines.append(f'- {line}')
+          else:
+              message_lines.append('升级重点：请查看发布说明')
+
+          message_lines.extend([
+              '',
+              f'发布说明：{release_url}',
+              f'版本对比：{compare_url}',
+          ])
+
+          message = '\n'.join(message_lines)
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('message<<EOF\n')
+              output.write(message)
+              output.write('\nEOF\n')
+          PY
+
       - name: Notify Telegram (Success)
         if: steps.check_updates.outputs.has_updates == 'true'
+        env:
+          TELEGRAM_MESSAGE: ${{ steps.telegram_message.outputs.message }}
         run: |
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
-          -d chat_id=${{ secrets.TELEGRAM_TO }} \
-          -d text="✅ Twikoo Vercel 已更新！新版本已部署。"
+          -d chat_id="${{ secrets.TELEGRAM_TO }}" \
+          --data-urlencode "text=${TELEGRAM_MESSAGE}"
 
       - name: Check for staleness
         id: check_stale
@@ -71,5 +261,3 @@ jobs:
           curl -s -X POST https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage \
           -d chat_id=${{ secrets.TELEGRAM_TO }} \
           -d text="⚠️ 警告：Twikoo Vercel 仓库已超过 50 天未活跃。GitHub Actions 可能会暂停此工作流。请手动触发一次运行或推送一个提交。"
-
-
