@@ -75,6 +75,7 @@ jobs:
           openai_api_key = os.environ.get('OPENAI_API_KEY', '').strip()
           openai_base_url = os.environ.get('OPENAI_BASE_URL', '').strip().rstrip('/')
           openai_model = os.environ.get('OPENAI_MODEL', '').strip()
+          github_output = os.environ['GITHUB_OUTPUT']
 
           compare_url = f'https://github.com/twikoojs/twikoo/compare/{from_version}...{to_version}'
           default_release_url = f'https://github.com/twikoojs/twikoo/releases/tag/{to_version}'
@@ -117,9 +118,9 @@ jobs:
 
           def summarize_with_ai(releases):
               if not releases:
-                  return []
+                  return [], 'No releases found in selected version range.'
               if not (openai_api_key and openai_base_url and openai_model):
-                  return []
+                  return [], 'OpenAI-compatible configuration is incomplete.'
 
               notes = []
               for release in releases:
@@ -131,7 +132,7 @@ jobs:
                   notes.append(f'## {tag_name} ({published_at})\n{body}')
 
               if not notes:
-                  return []
+                  return [], 'Release notes are empty for selected versions.'
 
               payload = {
                   'model': openai_model,
@@ -158,23 +159,44 @@ jobs:
                   ],
               }
 
-              request = urllib.request.Request(
-                  f'{openai_base_url}/chat/completions',
-                  data=json.dumps(payload).encode('utf-8'),
-                  headers={
-                      'Authorization': f'Bearer {openai_api_key}',
-                      'Content-Type': 'application/json',
-                  },
-              )
+              candidate_urls = []
+              if openai_base_url.endswith('/chat/completions'):
+                  candidate_urls.append(openai_base_url)
+              else:
+                  candidate_urls.append(f'{openai_base_url}/chat/completions')
+                  if not openai_base_url.endswith('/v1'):
+                      candidate_urls.append(f'{openai_base_url}/v1/chat/completions')
 
-              with urllib.request.urlopen(request, timeout=45) as response:
-                  data = json.load(response)
+              last_error = 'Unknown AI request error.'
+              content = ''
+              for request_url in candidate_urls:
+                  try:
+                      request = urllib.request.Request(
+                          request_url,
+                          data=json.dumps(payload).encode('utf-8'),
+                          headers={
+                              'Authorization': f'Bearer {openai_api_key}',
+                              'Content-Type': 'application/json',
+                          },
+                      )
 
-              content = data['choices'][0]['message'].get('content', '')
-              if isinstance(content, list):
-                  content = ''.join(
-                      part.get('text', '') for part in content if isinstance(part, dict)
-                  )
+                      with urllib.request.urlopen(request, timeout=45) as response:
+                          data = json.load(response)
+
+                      content = data['choices'][0]['message'].get('content', '')
+                      if isinstance(content, list):
+                          content = ''.join(
+                              part.get('text', '') for part in content if isinstance(part, dict)
+                          )
+
+                      if content:
+                          break
+                      last_error = f'Empty content returned from {request_url}.'
+                  except Exception as exc:
+                      last_error = f'{request_url} -> {exc}'
+
+              if not content:
+                  return [], last_error
 
               lines = []
               seen = set()
@@ -189,17 +211,25 @@ jobs:
                   seen.add(line)
                   lines.append(line)
 
-              return lines[:4]
+              if not lines:
+                  return [], 'AI response did not contain usable summary lines.'
+
+              return lines[:4], ''
 
           try:
               releases = collect_releases()
           except Exception:
               releases = []
 
+          summary_error = ''
           try:
-              summary_lines = summarize_with_ai(releases)
-          except Exception:
+              summary_lines, summary_error = summarize_with_ai(releases)
+          except Exception as exc:
               summary_lines = []
+              summary_error = str(exc)
+
+          if summary_error:
+              print(f'AI summary fallback: {summary_error}')
 
           release_url = default_release_url
           if releases:
@@ -226,7 +256,7 @@ jobs:
 
           message = '\n'.join(message_lines)
 
-          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+          with open(github_output, 'a', encoding='utf-8') as output:
               output.write('message<<EOF\n')
               output.write(message)
               output.write('\nEOF\n')
