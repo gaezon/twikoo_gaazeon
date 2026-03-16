@@ -193,7 +193,16 @@ jobs:
                           break
                       last_error = f'Empty content returned from {request_url}.'
                   except Exception as exc:
-                      last_error = f'{request_url} -> {exc}'
+                      error_body = ''
+                      if hasattr(exc, 'read'):
+                          try:
+                              error_body = exc.read().decode('utf-8', errors='ignore').strip()
+                          except Exception:
+                              error_body = ''
+                      if error_body:
+                          last_error = f'{request_url} -> {exc}; body: {error_body}'
+                      else:
+                          last_error = f'{request_url} -> {exc}'
 
               if not content:
                   return [], last_error
@@ -231,6 +240,15 @@ jobs:
           if summary_error:
               print(f'AI summary fallback: {summary_error}')
 
+          notification_error = ''
+          if summary_error:
+              notification_error = summary_error.replace(openai_api_key, '[MASKED]') if openai_api_key else summary_error
+              notification_error = re.sub(r'https?://\S+', '[URL]', notification_error)
+              notification_error = notification_error.replace('\r', ' ').replace('\n', ' ')
+              notification_error = re.sub(r'\s+', ' ', notification_error).strip()
+              if len(notification_error) > 180:
+                  notification_error = notification_error[:177] + '...'
+
           release_url = default_release_url
           if releases:
               release_url = releases[-1].get('html_url') or default_release_url
@@ -247,6 +265,8 @@ jobs:
                   message_lines.append(f'- {line}')
           else:
               message_lines.append('升级重点：请查看发布说明')
+              if notification_error:
+                  message_lines.append(f'AI 总结失败：{notification_error}')
 
           message_lines.extend([
               '',
