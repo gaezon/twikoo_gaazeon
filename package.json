@@ -3,7 +3,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "twikoo-vercel": "1.7.18"
+    "twikoo-vercel": "1.7.19"
   },
   "engines": {
     "node": ">=22"
