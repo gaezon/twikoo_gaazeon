@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Test / coverage
+coverage
+*.lcov
+.nyc_output
+
+# Optional npm cache
+.npm
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
