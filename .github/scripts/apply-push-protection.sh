@@ -3,9 +3,11 @@ set -euo pipefail
 
 # Apply the repository security_and_analysis payload defined in
 # .github/security/push-protection.json. Changing these settings requires
-# repository admin, so this is meant to be run locally with `gh` or from
-# Actions with a PAT that can administer the repo. The default GITHUB_TOKEN
-# cannot enable secret scanning push protection.
+# repository admin, so this is meant to be run locally with an
+# admin-authenticated `gh`. Do not store an admin PAT as a repository
+# Actions secret or inject it into a workflow: write collaborators can
+# read those secrets and trigger workflow_dispatch. The default
+# GITHUB_TOKEN cannot enable secret scanning push protection.
 # https://docs.github.com/en/rest/repos/repos#update-a-repository
 # https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection
 
