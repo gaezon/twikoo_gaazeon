@@ -1,1 +1,11 @@
-{ "dependencies": { "twikoo-vercel": "1.7.19" }, "engines": { "node": ">=22" } }
+{
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "twikoo-vercel": "1.7.19"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
