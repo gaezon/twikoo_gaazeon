@@ -14,7 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: write # Need permission to push changes
+      contents: write
+      pull-requests: write
 
     steps:
       - name: Mask Telegram bot id
@@ -66,14 +67,60 @@ jobs:
         if: steps.check_updates.outputs.has_updates == 'true'
         run: npm ci
 
-      - name: Commit and push changes
+      - name: Commit and open pull request
+        id: update_pr
         if: steps.check_updates.outputs.has_updates == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FROM_VERSION: ${{ steps.current_version.outputs.value }}
+          TO_VERSION: ${{ steps.check_updates.outputs.to_version }}
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          branch="chore/twikoo-vercel-${TO_VERSION}"
+          git checkout -B "$branch"
           git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No staged dependency changes"
+            exit 1
+          fi
           git commit -m "chore: update twikoo-vercel to latest version"
-          git push
+          git push --force-with-lease origin "$branch"
+
+          pr_url="$(gh pr list --head "$branch" --state open --json url --jq '.[0].url // empty')"
+          if [ -z "$pr_url" ]; then
+            body="$(printf 'Automated Twikoo upgrade from %s to %s.\n\n`main` is protected by the repository ruleset, so this workflow opens a pull request instead of pushing the default branch. Auto-merge is enabled and will complete after the required `test` check passes.\n' "$FROM_VERSION" "$TO_VERSION")"
+            pr_url="$(
+              gh pr create \
+                --base main \
+                --head "$branch" \
+                --title "chore: update twikoo-vercel to latest version" \
+                --body "$body"
+            )"
+          fi
+
+          echo "url=$pr_url" >> "$GITHUB_OUTPUT"
+
+          if ! gh pr merge "$pr_url" --merge --auto; then
+            echo "Failed to enable auto-merge. Enable it on the repository, then re-run this workflow." >&2
+            exit 1
+          fi
+
+          merged=false
+          for _ in $(seq 1 36); do
+            state="$(gh pr view "$pr_url" --json state --jq .state)"
+            if [ "$state" = MERGED ]; then
+              merged=true
+              break
+            fi
+            if [ "$state" = CLOSED ]; then
+              break
+            fi
+            sleep 10
+          done
+
+          echo "merged=$merged" >> "$GITHUB_OUTPUT"
 
       - name: Build Telegram notification
         id: telegram_message
@@ -81,6 +128,8 @@ jobs:
         env:
           FROM_VERSION: ${{ steps.current_version.outputs.value }}
           TO_VERSION: ${{ steps.check_updates.outputs.to_version }}
+          PR_URL: ${{ steps.update_pr.outputs.url }}
+          PR_MERGED: ${{ steps.update_pr.outputs.merged }}
           GITHUB_TOKEN: ${{ github.token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
@@ -94,6 +143,8 @@ jobs:
 
           from_version = os.environ['FROM_VERSION'].strip()
           to_version = os.environ['TO_VERSION'].strip()
+          pr_url = os.environ.get('PR_URL', '').strip()
+          pr_merged = os.environ.get('PR_MERGED', '').strip().lower() == 'true'
           github_token = os.environ.get('GITHUB_TOKEN', '').strip()
           openai_api_key = os.environ.get('OPENAI_API_KEY', '').strip()
           openai_base_url = os.environ.get('OPENAI_BASE_URL', '').strip().rstrip('/')
@@ -325,13 +376,18 @@ jobs:
           if releases:
               release_url = releases[-1].get('html_url') or default_release_url
 
+          title = '✅ Twikoo 升级完成' if pr_merged else '📝 Twikoo 升级 PR 已创建'
           message_lines = [
-              '✅ Twikoo 升级完成',
+              title,
               '',
               f'📦 版本：{from_version} -> {to_version}',
+          ]
+          if pr_url:
+              message_lines.extend(['', '🔀 Pull Request', pr_url])
+          message_lines.extend([
               '',
               '✨ 升级重点',
-          ]
+          ])
 
           if summary_lines:
               for line in summary_lines:

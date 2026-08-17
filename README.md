@@ -16,9 +16,9 @@ This repository includes a GitHub Action workflow (`.github/workflows/auto-updat
 
 1. **Daily Check**: The workflow runs automatically every day at midnight UTC.
 2. **Update Detection**: It checks for new versions of the `twikoo-vercel` dependency.
-3. **Auto-Commit**: If a new version is found, it updates `package.json` and commits the change.
-4. **Deployment**: The commit triggers a new deployment on Vercel.
-5. **Notifications**: You receive a Telegram notification upon successful update, including the target version and an AI-generated summary of the upgrade highlights.
+3. **Pull Request**: If a new version is found, it updates `package.json` and opens a pull request. Auto-merge completes after the required `test` check passes.
+4. **Deployment**: Merging into `main` triggers a new deployment on Vercel.
+5. **Notifications**: You receive a Telegram notification with the target version, the pull request URL, and an AI-generated summary of the upgrade highlights.
 
 #### Stale Repository Warning
 
@@ -26,7 +26,7 @@ GitHub automatically disables scheduled workflows in repositories that have been
 
 - The workflow checks if the last commit was more than 50 days ago.
 - If so, it sends a **Warning Notification** to Telegram.
-- **Action Required**: If you receive this warning, simply manually trigger the workflow or push a small commit (e.g., update README) to keep the repository active.
+- **Action Required**: If you receive this warning, manually trigger the workflow or merge a small pull request (for example a README tweak) to keep the repository active.
 
 ### Configuration
 
@@ -42,6 +42,7 @@ To enable notifications, you must configure the following **Repository Secrets**
 | `VERCEL_TOKEN` | Team-scoped Vercel token used by the deployment workflow. |
 | `VERCEL_ORG_ID` | ID of the existing Vercel team that owns the project. |
 | `VERCEL_PROJECT_ID` | ID of the existing Vercel project. |
+| `RULESET_TOKEN` | Optional repository-admin PAT used by the **Apply main ruleset** workflow. The default `GITHUB_TOKEN` cannot create or update rulesets. |
 
 The upgrade summary first calls the official [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses) (`POST /v1/responses`), with `instructions` plus `input` as documented by OpenAI. If that endpoint is unavailable, it falls back to Chat Completions (`POST /v1/chat/completions`), including when `OPENAI_BASE_URL` is already a full endpoint path. If the OpenAI-compatible configuration is unavailable or both requests fail, the workflow still sends a basic Telegram notification with the version number and release links.
 
@@ -52,6 +53,23 @@ You can manually trigger the update check at any time:
 1. Go to the **Actions** tab.
 2. Select **Auto Update Twikoo**.
 3. Click **Run workflow**.
+
+### Branch Protection
+
+`main` is protected by the repository ruleset defined in [`.github/rulesets/main.json`](.github/rulesets/main.json):
+
+- Direct pushes, force-pushes, and deleting `main` are blocked.
+- Changes must go through a pull request.
+- The `test` check from the **CI** workflow must pass, and the branch must be up to date with `main`.
+- Approving reviews are not required, so a single maintainer or an auto-merge bot PR can land after CI.
+
+GitHub does not let the Actions app bypass rulesets on a user-owned repository, so auto-updates open a pull request instead of pushing `main`. Re-apply the ruleset after editing the JSON:
+
+```bash
+bash .github/scripts/apply-ruleset.sh
+```
+
+Or run the **Apply main ruleset** workflow after adding `RULESET_TOKEN`.
 
 ---
 
@@ -69,9 +87,9 @@ You can manually trigger the update check at any time:
 
 1. **每日检查**：工作流每天 UTC 时间午夜自动运行。
 2. **检测更新**：检查 `twikoo-vercel` 依赖是否有新版本。
-3. **自动提交**：如果发现新版本，它会更新 `package.json` 并提交更改。
-4. **部署**：提交操作会自动触发 Vercel 的新部署。
-5. **通知**：更新成功后，您会收到 Telegram 通知，其中会包含目标版本号和 AI 生成的升级重点摘要。
+3. **Pull Request**：如果发现新版本，它会更新 `package.json` 并打开 pull request。所需的 `test` 检查通过后，自动合并会完成。
+4. **部署**：合并到 `main` 后会触发 Vercel 的新部署。
+5. **通知**：您会收到 Telegram 通知，其中会包含目标版本号、pull request 链接，以及 AI 生成的升级重点摘要。
 
 #### 仓库活跃度警告
 
@@ -79,7 +97,7 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 
 - 工作流会检查上一次提交是否超过 50 天。
 - 如果超过，它会发送一条 **警告通知** 到 Telegram。
-- **需要操作**：如果您收到此警告，只需手动触发一次工作流，或推送一个小的提交（例如更新 README），以保持仓库活跃。
+- **需要操作**：如果您收到此警告，请手动触发一次工作流，或合并一个小的 pull request（例如更新 README），以保持仓库活跃。
 
 ### 配置
 
@@ -95,6 +113,7 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 | `VERCEL_TOKEN` | 部署工作流使用的 Vercel 团队级 Token。 |
 | `VERCEL_ORG_ID` | 现有 Vercel 项目所属团队的 ID。 |
 | `VERCEL_PROJECT_ID` | 现有 Vercel 项目的 ID。 |
+| `RULESET_TOKEN` | 可选。仓库管理员 PAT，供 **Apply main ruleset** 工作流使用。默认的 `GITHUB_TOKEN` 无法创建或更新 ruleset。 |
 
 升级摘要会先调用官方 [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses)（`POST /v1/responses`），请求体使用文档中的 `instructions` 与 `input`。若该端点不可用，再回退到 Chat Completions（`POST /v1/chat/completions`），即使 `OPENAI_BASE_URL` 已经是完整 endpoint 路径也一样。如果 OpenAI 兼容接口未配置，或两次调用都失败，工作流仍会发送基础 Telegram 通知，并附带版本号与发布说明链接。
 
@@ -105,3 +124,20 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 1. 进入 **Actions** 标签页。
 2. 选择 **Auto Update Twikoo**。
 3. 点击 **Run workflow**。
+
+### 分支保护
+
+`main` 由 [`.github/rulesets/main.json`](.github/rulesets/main.json) 中的仓库规则集保护：
+
+- 禁止直接推送、强制推送和删除 `main`。
+- 变更必须通过 pull request。
+- 必须通过 **CI** 工作流中的 `test` 检查，并且分支需要与 `main` 保持同步。
+- 不要求人工批准，因此单独维护者或开启自动合并的机器人 PR 可以在 CI 通过后合入。
+
+GitHub 不允许在用户个人仓库里把 Actions 应用加入 ruleset bypass，所以自动更新会打开 pull request，而不是直接推送 `main`。修改 JSON 后重新应用规则集：
+
+```bash
+bash .github/scripts/apply-ruleset.sh
+```
+
+也可以在配置 `RULESET_TOKEN` 后运行 **Apply main ruleset** 工作流。
