@@ -42,7 +42,7 @@ To enable notifications, you must configure the following **Repository Secrets**
 | `VERCEL_TOKEN` | Team-scoped Vercel token used by the deployment workflow. |
 | `VERCEL_ORG_ID` | ID of the existing Vercel team that owns the project. |
 | `VERCEL_PROJECT_ID` | ID of the existing Vercel project. |
-| `RULESET_TOKEN` | Optional repository-admin PAT used by the **Apply main ruleset** workflow. The default `GITHUB_TOKEN` cannot create or update rulesets. |
+| `RULESET_TOKEN` | Optional repository-admin PAT used by the **Apply main ruleset** and **Apply push protection** workflows. The default `GITHUB_TOKEN` cannot create or update rulesets or change security analysis settings. |
 
 The upgrade summary first calls the official [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses) (`POST /v1/responses`), with `instructions` plus `input` as documented by OpenAI. If that endpoint is unavailable, it falls back to Chat Completions (`POST /v1/chat/completions`), including when `OPENAI_BASE_URL` is already a full endpoint path. If the OpenAI-compatible configuration is unavailable or both requests fail, the workflow still sends a basic Telegram notification with the version number and release links.
 
@@ -70,6 +70,18 @@ bash .github/scripts/apply-ruleset.sh
 ```
 
 Or run the **Apply main ruleset** workflow after adding `RULESET_TOKEN`.
+
+### Push Protection
+
+[Push protection](https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection) blocks commits that contain supported secrets from being pushed to any branch. Secret scanning stays enabled because push protection depends on it.
+
+The desired setting is defined in [`.github/security/push-protection.json`](.github/security/push-protection.json). Re-apply it after editing the JSON:
+
+```bash
+bash .github/scripts/apply-push-protection.sh
+```
+
+Or run the **Apply push protection** workflow after adding `RULESET_TOKEN`.
 
 ---
 
@@ -113,7 +125,7 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 | `VERCEL_TOKEN` | 部署工作流使用的 Vercel 团队级 Token。 |
 | `VERCEL_ORG_ID` | 现有 Vercel 项目所属团队的 ID。 |
 | `VERCEL_PROJECT_ID` | 现有 Vercel 项目的 ID。 |
-| `RULESET_TOKEN` | 可选。仓库管理员 PAT，供 **Apply main ruleset** 工作流使用。默认的 `GITHUB_TOKEN` 无法创建或更新 ruleset。 |
+| `RULESET_TOKEN` | 可选。仓库管理员 PAT，供 **Apply main ruleset** 和 **Apply push protection** 工作流使用。默认的 `GITHUB_TOKEN` 无法创建或更新 ruleset，也无法更改安全分析设置。 |
 
 升级摘要会先调用官方 [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses)（`POST /v1/responses`），请求体使用文档中的 `instructions` 与 `input`。若该端点不可用，再回退到 Chat Completions（`POST /v1/chat/completions`），即使 `OPENAI_BASE_URL` 已经是完整 endpoint 路径也一样。如果 OpenAI 兼容接口未配置，或两次调用都失败，工作流仍会发送基础 Telegram 通知，并附带版本号与发布说明链接。
 
@@ -141,3 +153,15 @@ bash .github/scripts/apply-ruleset.sh
 ```
 
 也可以在配置 `RULESET_TOKEN` 后运行 **Apply main ruleset** 工作流。
+
+### Push Protection
+
+[Push protection](https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection) 会拦截包含受支持密钥的提交，阻止它们被推送到任意分支。Secret scanning 会保持开启，因为 push protection 依赖它。
+
+目标设置写在 [`.github/security/push-protection.json`](.github/security/push-protection.json)。修改 JSON 后重新应用：
+
+```bash
+bash .github/scripts/apply-push-protection.sh
+```
+
+也可以在配置 `RULESET_TOKEN` 后运行 **Apply push protection** 工作流。
