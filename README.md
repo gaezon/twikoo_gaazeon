@@ -37,13 +37,13 @@ To enable notifications, you must configure the following **Repository Secrets**
 | `TELEGRAM_TOKEN` | Your Telegram Bot Token (from @BotFather). |
 | `TELEGRAM_TO` | The Chat ID (user or channel) where notifications should be sent. |
 | `OPENAI_API_KEY` | API key for your OpenAI-compatible endpoint, used to summarize release notes. |
-| `OPENAI_BASE_URL` | API root such as `https://api.openai.com/v1`. You can also set a full path like `https://api.openai.com/v1/responses`. |
+| `OPENAI_BASE_URL` | API root such as `https://api.openai.com/v1`. A full path like `https://api.openai.com/v1/responses` or `https://api.openai.com/v1/chat/completions` is stripped back to the API root, then tried as Responses first and Chat Completions second. |
 | `OPENAI_MODEL` | Model name used to generate the upgrade summary. |
 | `VERCEL_TOKEN` | Team-scoped Vercel token used by the deployment workflow. |
 | `VERCEL_ORG_ID` | ID of the existing Vercel team that owns the project. |
 | `VERCEL_PROJECT_ID` | ID of the existing Vercel project. |
 
-The upgrade summary first calls the official [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses) (`POST /v1/responses`), with `instructions` plus `input` as documented by OpenAI. If that endpoint is unavailable, it falls back to Chat Completions (`POST /v1/chat/completions`). If the OpenAI-compatible configuration is unavailable or both requests fail, the workflow still sends a basic Telegram notification with the version number and release links.
+The upgrade summary first calls the official [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses) (`POST /v1/responses`), with `instructions` plus `input` as documented by OpenAI. If that endpoint is unavailable, it falls back to Chat Completions (`POST /v1/chat/completions`), including when `OPENAI_BASE_URL` is already a full endpoint path. If the OpenAI-compatible configuration is unavailable or both requests fail, the workflow still sends a basic Telegram notification with the version number and release links.
 
 ### Manual Trigger
 
@@ -90,13 +90,13 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 | `TELEGRAM_TOKEN` | 您的 Telegram Bot Token (从 @BotFather 获取)。 |
 | `TELEGRAM_TO` | 接收通知的 Chat ID (用户 ID 或频道 ID)。 |
 | `OPENAI_API_KEY` | OpenAI 兼容接口的 API Key，用于总结升级说明。 |
-| `OPENAI_BASE_URL` | API 根地址，例如 `https://api.openai.com/v1`。也可以写成完整路径，例如 `https://api.openai.com/v1/responses`。 |
+| `OPENAI_BASE_URL` | API 根地址，例如 `https://api.openai.com/v1`。如果写成完整路径，例如 `https://api.openai.com/v1/responses` 或 `https://api.openai.com/v1/chat/completions`，会先还原成 API root，再按 Responses 优先、Chat Completions 回退的顺序尝试。 |
 | `OPENAI_MODEL` | 用于生成升级摘要的模型名称。 |
 | `VERCEL_TOKEN` | 部署工作流使用的 Vercel 团队级 Token。 |
 | `VERCEL_ORG_ID` | 现有 Vercel 项目所属团队的 ID。 |
 | `VERCEL_PROJECT_ID` | 现有 Vercel 项目的 ID。 |
 
-升级摘要会先调用官方 [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses)（`POST /v1/responses`），请求体使用文档中的 `instructions` 与 `input`。若该端点不可用，再回退到 Chat Completions（`POST /v1/chat/completions`）。如果 OpenAI 兼容接口未配置，或两次调用都失败，工作流仍会发送基础 Telegram 通知，并附带版本号与发布说明链接。
+升级摘要会先调用官方 [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses)（`POST /v1/responses`），请求体使用文档中的 `instructions` 与 `input`。若该端点不可用，再回退到 Chat Completions（`POST /v1/chat/completions`），即使 `OPENAI_BASE_URL` 已经是完整 endpoint 路径也一样。如果 OpenAI 兼容接口未配置，或两次调用都失败，工作流仍会发送基础 Telegram 通知，并附带版本号与发布说明链接。
 
 ### 手动触发
 
