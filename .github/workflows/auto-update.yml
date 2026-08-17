@@ -121,6 +121,20 @@ jobs:
               selected.sort(key=lambda item: parse_version(item.get('tag_name', '')))
               return selected
 
+          def openai_candidate_urls(base_url):
+              if base_url.endswith('/responses'):
+                  base_url = base_url[:-len('/responses')]
+              elif base_url.endswith('/chat/completions'):
+                  base_url = base_url[:-len('/chat/completions')]
+
+              candidate_urls = [f'{base_url}/responses']
+              if not base_url.endswith('/v1'):
+                  candidate_urls.append(f'{base_url}/v1/responses')
+              candidate_urls.append(f'{base_url}/chat/completions')
+              if not base_url.endswith('/v1'):
+                  candidate_urls.append(f'{base_url}/v1/chat/completions')
+              return candidate_urls
+
           def extract_ai_text(data):
               if not isinstance(data, dict):
                   return ''
@@ -190,15 +204,7 @@ jobs:
                   + '\n\n'.join(notes)
               )
 
-              if openai_base_url.endswith(('/responses', '/chat/completions')):
-                  candidate_urls = [openai_base_url]
-              else:
-                  candidate_urls = [f'{openai_base_url}/responses']
-                  if not openai_base_url.endswith('/v1'):
-                      candidate_urls.append(f'{openai_base_url}/v1/responses')
-                  candidate_urls.append(f'{openai_base_url}/chat/completions')
-                  if not openai_base_url.endswith('/v1'):
-                      candidate_urls.append(f'{openai_base_url}/v1/chat/completions')
+              candidate_urls = openai_candidate_urls(openai_base_url)
 
               last_error = 'Unknown AI request error.'
               content = ''
