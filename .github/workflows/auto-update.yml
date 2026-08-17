@@ -121,6 +121,58 @@ jobs:
               selected.sort(key=lambda item: parse_version(item.get('tag_name', '')))
               return selected
 
+          def openai_candidate_urls(base_url):
+              if base_url.endswith('/responses'):
+                  base_url = base_url[:-len('/responses')]
+              elif base_url.endswith('/chat/completions'):
+                  base_url = base_url[:-len('/chat/completions')]
+
+              candidate_urls = [f'{base_url}/responses']
+              if not base_url.endswith('/v1'):
+                  candidate_urls.append(f'{base_url}/v1/responses')
+              candidate_urls.append(f'{base_url}/chat/completions')
+              if not base_url.endswith('/v1'):
+                  candidate_urls.append(f'{base_url}/v1/chat/completions')
+              return candidate_urls
+
+          def extract_ai_text(data):
+              if not isinstance(data, dict):
+                  return ''
+
+              output_text = data.get('output_text')
+              if isinstance(output_text, str) and output_text.strip():
+                  return output_text
+
+              texts = []
+              for item in data.get('output') or []:
+                  if not isinstance(item, dict):
+                      continue
+                  if item.get('type') not in (None, 'message'):
+                      continue
+                  content = item.get('content')
+                  if isinstance(content, str):
+                      texts.append(content)
+                      continue
+                  if not isinstance(content, list):
+                      continue
+                  for part in content:
+                      if isinstance(part, str):
+                          texts.append(part)
+                      elif isinstance(part, dict) and part.get('type') in ('output_text', 'text'):
+                          texts.append(part.get('text') or '')
+              if texts:
+                  return ''.join(texts)
+
+              try:
+                  content = data['choices'][0]['message'].get('content', '')
+              except (KeyError, IndexError, TypeError):
+                  return ''
+              if isinstance(content, list):
+                  return ''.join(
+                      part.get('text', '') for part in content if isinstance(part, dict)
+                  )
+              return content or ''
+
           def summarize_with_ai(releases):
               if not releases:
                   return [], 'No releases found in selected version range.'
@@ -139,42 +191,41 @@ jobs:
               if not notes:
                   return [], 'Release notes are empty for selected versions.'
 
-              payload = {
-                  'model': openai_model,
-                  'temperature': 0.2,
-                  'messages': [
-                      {
-                          'role': 'system',
-                          'content': '你是发布说明助手，负责把多个版本的更新日志压缩成适合 Telegram 通知的中文升级重点。',
-                      },
-                      {
-                          'role': 'user',
-                          'content': (
-                              '请根据下面多个版本的 Twikoo 发布说明，总结 2 到 4 条适合 Telegram 通知的中文升级重点。\n'
-                              '要求：\n'
-                              '1. 每条单独一行，不要编号。\n'
-                              '2. 只保留用户可感知的新功能、重要修复、体验优化。\n'
-                              '3. 忽略 chore、deps、dependabot、New Contributors、纯链接。\n'
-                              '4. 不要编造不存在的信息。\n'
-                              '5. 如果没有明确可总结内容，只返回「本次主要为常规维护与兼容性更新」。\n\n'
-                              f'版本范围：{from_version} -> {to_version}\n\n'
-                              + '\n\n'.join(notes)
-                          ),
-                      },
-                  ],
-              }
+              instructions = '你是发布说明助手，负责把多个版本的更新日志压缩成适合 Telegram 通知的中文升级重点。'
+              user_input = (
+                  '请根据下面多个版本的 Twikoo 发布说明，总结 2 到 4 条适合 Telegram 通知的中文升级重点。\n'
+                  '要求：\n'
+                  '1. 每条单独一行，不要编号。\n'
+                  '2. 只保留用户可感知的新功能、重要修复、体验优化。\n'
+                  '3. 忽略 chore、deps、dependabot、New Contributors、纯链接。\n'
+                  '4. 不要编造不存在的信息。\n'
+                  '5. 如果没有明确可总结内容，只返回「本次主要为常规维护与兼容性更新」。\n\n'
+                  f'版本范围：{from_version} -> {to_version}\n\n'
+                  + '\n\n'.join(notes)
+              )
 
-              candidate_urls = []
-              if openai_base_url.endswith('/chat/completions'):
-                  candidate_urls.append(openai_base_url)
-              else:
-                  candidate_urls.append(f'{openai_base_url}/chat/completions')
-                  if not openai_base_url.endswith('/v1'):
-                      candidate_urls.append(f'{openai_base_url}/v1/chat/completions')
+              candidate_urls = openai_candidate_urls(openai_base_url)
 
               last_error = 'Unknown AI request error.'
               content = ''
               for request_url in candidate_urls:
+                  if request_url.endswith('/responses'):
+                      payload = {
+                          'model': openai_model,
+                          'instructions': instructions,
+                          'input': user_input,
+                          'store': False,
+                      }
+                  else:
+                      payload = {
+                          'model': openai_model,
+                          'temperature': 0.2,
+                          'messages': [
+                              {'role': 'system', 'content': instructions},
+                              {'role': 'user', 'content': user_input},
+                          ],
+                      }
+
                   try:
                       request = urllib.request.Request(
                           request_url,
@@ -190,11 +241,7 @@ jobs:
                       with urllib.request.urlopen(request, timeout=45) as response:
                           data = json.load(response)
 
-                      content = data['choices'][0]['message'].get('content', '')
-                      if isinstance(content, list):
-                          content = ''.join(
-                              part.get('text', '') for part in content if isinstance(part, dict)
-                          )
+                      content = extract_ai_text(data)
 
                       if content:
                           break
