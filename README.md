@@ -39,6 +39,9 @@ To enable notifications, you must configure the following **Repository Secrets**
 | `OPENAI_API_KEY` | API key for your OpenAI-compatible endpoint, used to summarize release notes. |
 | `OPENAI_BASE_URL` | Base URL for the OpenAI-compatible API, for example `https://api.openai.com/v1`. |
 | `OPENAI_MODEL` | Model name used to generate the upgrade summary. |
+| `VERCEL_TOKEN` | Team-scoped Vercel token used by the deployment workflow. |
+| `VERCEL_ORG_ID` | ID of the existing Vercel team that owns the project. |
+| `VERCEL_PROJECT_ID` | ID of the existing Vercel project. |
 
 If the OpenAI-compatible configuration is unavailable or the request fails, the workflow still sends a basic Telegram notification with the version number and release links.
 
@@ -89,6 +92,9 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 | `OPENAI_API_KEY` | OpenAI 兼容接口的 API Key，用于总结升级说明。 |
 | `OPENAI_BASE_URL` | OpenAI 兼容接口的基础地址，例如 `https://api.openai.com/v1`。 |
 | `OPENAI_MODEL` | 用于生成升级摘要的模型名称。 |
+| `VERCEL_TOKEN` | 部署工作流使用的 Vercel 团队级 Token。 |
+| `VERCEL_ORG_ID` | 现有 Vercel 项目所属团队的 ID。 |
+| `VERCEL_PROJECT_ID` | 现有 Vercel 项目的 ID。 |
 
 如果 OpenAI 兼容接口未配置或调用失败，工作流仍会发送基础 Telegram 通知，并附带版本号与发布说明链接。
 
