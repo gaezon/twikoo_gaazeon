@@ -183,7 +183,7 @@ jobs:
                               'Authorization': f'Bearer {openai_api_key}',
                               'Content-Type': 'application/json',
                               'Accept': 'application/json',
-                              'User-Agent': 'Mozilla/5.0 (compatible; TwikooUpdater/1.0; +https://github.com/gz4zzxc/twikoo_gaazeon)',
+                              'User-Agent': 'Mozilla/5.0 (compatible; TwikooUpdater/1.0; +https://github.com/gaezon/twikoo_gaazeon)',
                           },
                       )
 
