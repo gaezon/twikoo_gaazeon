@@ -17,6 +17,15 @@ jobs:
       contents: write # Need permission to push changes
 
     steps:
+      - name: Mask Telegram bot id
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        run: |
+          bot_id="${TELEGRAM_TOKEN%%:*}"
+          if [ -n "$bot_id" ]; then
+            printf '::add-mask::%s\n' "$bot_id"
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v6
 
@@ -343,13 +352,10 @@ jobs:
       - name: Notify Telegram (Success)
         if: steps.check_updates.outputs.has_updates == 'true'
         env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
           TELEGRAM_MESSAGE: ${{ steps.telegram_message.outputs.message }}
-        run: |
-          curl --silent --show-error --fail --max-time 30 \
-          -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
-          --data-urlencode "chat_id=${{ secrets.TELEGRAM_TO }}" \
-          --data-urlencode "disable_web_page_preview=true" \
-          --data-urlencode "text=${TELEGRAM_MESSAGE}"
+        run: bash .github/scripts/send-telegram.sh
 
       - name: Check for staleness
         id: check_stale
@@ -367,8 +373,8 @@ jobs:
 
       - name: Notify Telegram (Stale Warning)
         if: steps.check_stale.outputs.is_stale == 'true'
-        run: |
-          curl --silent --show-error --fail --max-time 30 \
-          -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
-          --data-urlencode "chat_id=${{ secrets.TELEGRAM_TO }}" \
-          --data-urlencode "text=⚠️ 警告：Twikoo Vercel 仓库已超过 50 天未活跃。GitHub Actions 可能会暂停此工作流。请手动触发一次运行或推送一个提交。"
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
+          TELEGRAM_MESSAGE: ⚠️ 警告：Twikoo Vercel 仓库已超过 50 天未活跃。GitHub Actions 可能会暂停此工作流。请手动触发一次运行或推送一个提交。
+        run: bash .github/scripts/send-telegram.sh
