@@ -42,7 +42,6 @@ To enable notifications, you must configure the following **Repository Secrets**
 | `VERCEL_TOKEN` | Team-scoped Vercel token used by the deployment workflow. |
 | `VERCEL_ORG_ID` | ID of the existing Vercel team that owns the project. |
 | `VERCEL_PROJECT_ID` | ID of the existing Vercel project. |
-| `RULESET_TOKEN` | Optional repository-admin PAT used by the **Apply main ruleset** workflow. The default `GITHUB_TOKEN` cannot create or update rulesets. |
 
 The upgrade summary first calls the official [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses) (`POST /v1/responses`), with `instructions` plus `input` as documented by OpenAI. If that endpoint is unavailable, it falls back to Chat Completions (`POST /v1/chat/completions`), including when `OPENAI_BASE_URL` is already a full endpoint path. If the OpenAI-compatible configuration is unavailable or both requests fail, the workflow still sends a basic Telegram notification with the version number and release links.
 
@@ -63,13 +62,25 @@ You can manually trigger the update check at any time:
 - The `test` check from the **CI** workflow must pass, and the branch must be up to date with `main`.
 - Approving reviews are not required, so a single maintainer or an auto-merge bot PR can land after CI.
 
-GitHub does not let the Actions app bypass rulesets on a user-owned repository, so auto-updates open a pull request instead of pushing `main`. Re-apply the ruleset after editing the JSON:
+GitHub does not let the Actions app bypass rulesets on a user-owned repository, so auto-updates open a pull request instead of pushing `main`. Re-apply the ruleset locally after editing the JSON:
 
 ```bash
 bash .github/scripts/apply-ruleset.sh
 ```
 
-Or run the **Apply main ruleset** workflow after adding `RULESET_TOKEN`.
+This stays a local `gh` command. Applying a ruleset needs repository Administration access, and [anyone with write access can read repository Actions secrets](https://docs.github.com/en/actions/reference/security/secure-use) and [run `workflow_dispatch` workflows](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow). An admin PAT must not be stored as a repository secret.
+
+### Push Protection
+
+[Push protection](https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection) blocks commits that contain supported secrets from being pushed to any branch. Secret scanning stays enabled because push protection depends on it.
+
+The desired setting is defined in [`.github/security/push-protection.json`](.github/security/push-protection.json). Re-apply it locally after editing the JSON:
+
+```bash
+bash .github/scripts/apply-push-protection.sh
+```
+
+This also stays a local `gh` command, for the same reason as the ruleset script: changing security analysis settings needs repository admin, so the credential must not be available to Actions.
 
 ---
 
@@ -113,7 +124,6 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 | `VERCEL_TOKEN` | 部署工作流使用的 Vercel 团队级 Token。 |
 | `VERCEL_ORG_ID` | 现有 Vercel 项目所属团队的 ID。 |
 | `VERCEL_PROJECT_ID` | 现有 Vercel 项目的 ID。 |
-| `RULESET_TOKEN` | 可选。仓库管理员 PAT，供 **Apply main ruleset** 工作流使用。默认的 `GITHUB_TOKEN` 无法创建或更新 ruleset。 |
 
 升级摘要会先调用官方 [Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses)（`POST /v1/responses`），请求体使用文档中的 `instructions` 与 `input`。若该端点不可用，再回退到 Chat Completions（`POST /v1/chat/completions`），即使 `OPENAI_BASE_URL` 已经是完整 endpoint 路径也一样。如果 OpenAI 兼容接口未配置，或两次调用都失败，工作流仍会发送基础 Telegram 通知，并附带版本号与发布说明链接。
 
@@ -134,10 +144,22 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 - 必须通过 **CI** 工作流中的 `test` 检查，并且分支需要与 `main` 保持同步。
 - 不要求人工批准，因此单独维护者或开启自动合并的机器人 PR 可以在 CI 通过后合入。
 
-GitHub 不允许在用户个人仓库里把 Actions 应用加入 ruleset bypass，所以自动更新会打开 pull request，而不是直接推送 `main`。修改 JSON 后重新应用规则集：
+GitHub 不允许在用户个人仓库里把 Actions 应用加入 ruleset bypass，所以自动更新会打开 pull request，而不是直接推送 `main`。修改 JSON 后在本地重新应用规则集：
 
 ```bash
 bash .github/scripts/apply-ruleset.sh
 ```
 
-也可以在配置 `RULESET_TOKEN` 后运行 **Apply main ruleset** 工作流。
+这必须是本地 `gh` 命令。应用 ruleset 需要仓库 Administration 权限，而 [拥有 write 权限的人可以读取仓库 Actions secrets](https://docs.github.com/en/actions/reference/security/secure-use)，也可以 [手动运行 `workflow_dispatch` 工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)。Admin PAT 不能作为 repository secret 存放。
+
+### Push Protection
+
+[Push protection](https://docs.github.com/en/code-security/secret-scanning/introduction/about-push-protection) 会拦截包含受支持密钥的提交，阻止它们被推送到任意分支。Secret scanning 会保持开启，因为 push protection 依赖它。
+
+目标设置写在 [`.github/security/push-protection.json`](.github/security/push-protection.json)。修改 JSON 后在本地重新应用：
+
+```bash
+bash .github/scripts/apply-push-protection.sh
+```
+
+同样只允许本地 `gh` 执行。更改安全分析设置需要仓库 admin，因此这个凭证不能交给 Actions。

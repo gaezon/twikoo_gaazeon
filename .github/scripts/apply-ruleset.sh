@@ -3,8 +3,10 @@ set -euo pipefail
 
 # Upsert the repository ruleset defined in .github/rulesets/main.json.
 # Creating or updating a ruleset requires repository admin, so this is meant
-# to be run locally with `gh` or from Actions with a PAT that can administer
-# the repo. The default GITHUB_TOKEN cannot manage rulesets.
+# to be run locally with an admin-authenticated `gh`. Do not store an admin
+# PAT as a repository Actions secret or inject it into a workflow: write
+# collaborators can read those secrets and trigger workflow_dispatch.
+# The default GITHUB_TOKEN cannot manage rulesets.
 # https://docs.github.com/en/rest/repos/rules#create-a-repository-ruleset
 # https://docs.github.com/en/rest/repos/rules#update-a-repository-ruleset
 # https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository
