@@ -2,7 +2,7 @@ const { describe, it, beforeEach, afterEach } = require('node:test')
 const assert = require('node:assert/strict')
 const {
   LOCALHOST_REGEX,
-  ALLOWED_HEADERS,
+  DEFAULT_ALLOWED_HEADERS,
   ALLOWED_METHODS,
   MAX_AGE,
   getAllowedOrigin,
@@ -18,11 +18,11 @@ describe('getAllowedOrigin', () => {
     assert.equal(getAllowedOrigin(123), '')
   })
 
-  it('allows localhost and loopback addresses with any port', () => {
-    assert.equal(getAllowedOrigin('http://localhost', 'https://example.com'), 'http://localhost')
+  it('allows localhost and loopback addresses with any port even when whitelist is empty', () => {
+    assert.equal(getAllowedOrigin('http://localhost', ''), 'http://localhost')
     assert.equal(getAllowedOrigin('http://localhost:3000', 'https://example.com'), 'http://localhost:3000')
-    assert.equal(getAllowedOrigin('https://127.0.0.1:8080', 'https://example.com'), 'https://127.0.0.1:8080')
-    assert.equal(getAllowedOrigin('http://0.0.0.0:5173', 'https://example.com'), 'http://0.0.0.0:5173')
+    assert.equal(getAllowedOrigin('https://127.0.0.1:8080', ''), 'https://127.0.0.1:8080')
+    assert.equal(getAllowedOrigin('http://0.0.0.0:5173', ''), 'http://0.0.0.0:5173')
   })
 
   it('matches origins in whitelist regardless of trailing slashes', () => {
@@ -37,9 +37,13 @@ describe('getAllowedOrigin', () => {
     assert.equal(getAllowedOrigin('https://example.org', whitelist), '')
   })
 
-  it('allows requested origin when no whitelist is configured', () => {
-    assert.equal(getAllowedOrigin('https://any-site.org', ''), 'https://any-site.org')
-    assert.equal(getAllowedOrigin('https://any-site.org', undefined), 'https://any-site.org')
+  it('secure default: denies any external origin when whitelist is empty or unset', () => {
+    assert.equal(getAllowedOrigin('https://evil.com', ''), '')
+    assert.equal(getAllowedOrigin('https://any-site.org', undefined), '')
+  })
+
+  it('supports wildcard * whitelist', () => {
+    assert.equal(getAllowedOrigin('https://any-site.org', '*'), '*')
   })
 })
 
@@ -60,7 +64,29 @@ describe('setCorsHeaders', () => {
     assert.deepEqual(response.headers, {})
   })
 
-  it('sets full CORS headers and Vary: Origin for allowed origin', () => {
+  it('sets full CORS headers, Cache-Control: no-store, and Vary: Origin for allowed origin', () => {
+    const response = createMockResponse()
+    setCorsHeaders(
+      {
+        headers: {
+          origin: 'https://example.com',
+          'access-control-request-headers': 'X-Custom-Header, Content-Type'
+        }
+      },
+      response,
+      'https://example.com'
+    )
+
+    assert.equal(response.headers['Vary'], 'Origin')
+    assert.equal(response.headers['Cache-Control'], 'no-store')
+    assert.equal(response.headers['Access-Control-Allow-Origin'], 'https://example.com')
+    assert.equal(response.headers['Access-Control-Allow-Credentials'], 'true')
+    assert.equal(response.headers['Access-Control-Allow-Methods'], ALLOWED_METHODS)
+    assert.equal(response.headers['Access-Control-Allow-Headers'], 'X-Custom-Header, Content-Type')
+    assert.equal(response.headers['Access-Control-Max-Age'], MAX_AGE)
+  })
+
+  it('falls back to default allowed headers if access-control-request-headers is absent', () => {
     const response = createMockResponse()
     setCorsHeaders(
       { headers: { origin: 'https://example.com' } },
@@ -68,15 +94,10 @@ describe('setCorsHeaders', () => {
       'https://example.com'
     )
 
-    assert.equal(response.headers['Vary'], 'Origin')
-    assert.equal(response.headers['Access-Control-Allow-Origin'], 'https://example.com')
-    assert.equal(response.headers['Access-Control-Allow-Credentials'], 'true')
-    assert.equal(response.headers['Access-Control-Allow-Methods'], ALLOWED_METHODS)
-    assert.equal(response.headers['Access-Control-Allow-Headers'], ALLOWED_HEADERS)
-    assert.equal(response.headers['Access-Control-Max-Age'], MAX_AGE)
+    assert.equal(response.headers['Access-Control-Allow-Headers'], DEFAULT_ALLOWED_HEADERS)
   })
 
-  it('sets Vary: Origin but omits Access-Control-Allow-Origin for disallowed origin', () => {
+  it('sets Vary and Cache-Control but omits Access-Control-Allow-Origin for disallowed origin', () => {
     const response = createMockResponse()
     setCorsHeaders(
       { headers: { origin: 'https://disallowed.com' } },
@@ -85,7 +106,20 @@ describe('setCorsHeaders', () => {
     )
 
     assert.equal(response.headers['Vary'], 'Origin')
+    assert.equal(response.headers['Cache-Control'], 'no-store')
     assert.equal(response.headers['Access-Control-Allow-Origin'], undefined)
+    assert.equal(response.headers['Access-Control-Allow-Credentials'], undefined)
+  })
+
+  it('omits Access-Control-Allow-Credentials when origin is wildcard *', () => {
+    const response = createMockResponse()
+    setCorsHeaders(
+      { headers: { origin: 'https://any-site.org' } },
+      response,
+      '*'
+    )
+
+    assert.equal(response.headers['Access-Control-Allow-Origin'], '*')
     assert.equal(response.headers['Access-Control-Allow-Credentials'], undefined)
   })
 })
@@ -118,7 +152,7 @@ describe('handleCors', () => {
     return res
   }
 
-  it('intercepts OPTIONS preflight and responds with 204', () => {
+  it('intercepts OPTIONS preflight and responds with 204 and Cache-Control: no-store', () => {
     const request = {
       method: 'OPTIONS',
       headers: { origin: 'https://example.com' }
@@ -131,6 +165,7 @@ describe('handleCors', () => {
     assert.equal(response.getStatusCode(), 204)
     assert.equal(response.isEnded(), true)
     assert.equal(response.headers['Vary'], 'Origin')
+    assert.equal(response.headers['Cache-Control'], 'no-store')
     assert.equal(response.headers['Access-Control-Allow-Origin'], 'https://example.com')
     assert.equal(response.headers['Access-Control-Max-Age'], '600')
   })
@@ -148,6 +183,7 @@ describe('handleCors', () => {
     assert.equal(response.getStatusCode(), null)
     assert.equal(response.isEnded(), false)
     assert.equal(response.headers['Vary'], 'Origin')
+    assert.equal(response.headers['Cache-Control'], 'no-store')
     assert.equal(response.headers['Access-Control-Allow-Origin'], 'https://example.com')
   })
 })
@@ -174,5 +210,11 @@ describe('environment variables support', () => {
     process.env.TWIKOO_CORS_ALLOW_ORIGIN = 'https://twikoo-env.com'
     assert.equal(getAllowedOrigin('https://twikoo-env.com'), 'https://twikoo-env.com')
     assert.equal(getAllowedOrigin('https://other.com'), '')
+  })
+
+  it('denies external origin when env is missing', () => {
+    delete process.env.CORS_ALLOW_ORIGIN
+    delete process.env.TWIKOO_CORS_ALLOW_ORIGIN
+    assert.equal(getAllowedOrigin('https://unknown.com'), '')
   })
 })
