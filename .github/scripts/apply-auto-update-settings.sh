@@ -5,6 +5,7 @@ set -euo pipefail
 # 1. Allow GitHub Actions to create pull requests (and, as a side effect of
 #    the same GitHub toggle, approve pull request reviews).
 # 2. Keep pull request auto-merge enabled.
+# 3. Delete head branches after a pull request is merged.
 # Changing these settings requires repository admin, so this is meant to be
 # run locally with an admin-authenticated `gh`. Do not store an admin PAT as
 # a repository Actions secret or inject it into a workflow: write
@@ -56,6 +57,11 @@ if [ "$(jq -r .allow_auto_merge "$AUTO_MERGE_FILE")" != "true" ]; then
   exit 1
 fi
 
+if [ "$(jq -r .delete_branch_on_merge "$AUTO_MERGE_FILE")" != "true" ]; then
+  echo "auto-merge file must enable delete_branch_on_merge" >&2
+  exit 1
+fi
+
 repo="${GITHUB_REPOSITORY:-}"
 if [ -z "$repo" ]; then
   repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
@@ -74,10 +80,17 @@ fi
 
 gh api --method PATCH "repos/${repo}" --input "$AUTO_MERGE_FILE" >/dev/null
 
-allow_auto_merge="$(gh api "repos/${repo}" --jq .allow_auto_merge)"
-if [ "$allow_auto_merge" != "true" ]; then
-  echo "Failed to enable auto-merge on ${repo}" >&2
+merge_settings="$(
+  gh api "repos/${repo}" --jq '{
+    allow_auto_merge: .allow_auto_merge,
+    delete_branch_on_merge: .delete_branch_on_merge
+  }'
+)"
+allow_auto_merge="$(jq -r .allow_auto_merge <<<"$merge_settings")"
+delete_branch_on_merge="$(jq -r .delete_branch_on_merge <<<"$merge_settings")"
+if [ "$allow_auto_merge" != "true" ] || [ "$delete_branch_on_merge" != "true" ]; then
+  echo "Failed to enable auto-merge settings on ${repo}: ${merge_settings}" >&2
   exit 1
 fi
 
-echo "Enabled Actions pull-request creation and auto-merge on ${repo}"
+echo "Enabled Actions pull-request creation, auto-merge, and delete-branch-on-merge on ${repo}"
