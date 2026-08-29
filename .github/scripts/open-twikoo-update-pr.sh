@@ -71,11 +71,35 @@ if ! gh pr merge "$pr_url" --merge --auto; then
   exit 1
 fi
 
-# Events created with GITHUB_TOKEN do not start `pull_request` or `push`
-# workflows. Dispatch CI onto this branch so the required `test` check exists
-# and auto-merge can complete.
-# https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
-gh workflow run CI --ref "$branch"
+# Pull requests opened with GITHUB_TOKEN leave the pull_request CI run in
+# `action_required` until a write-access actor approves it. Auto-merge waits
+# for that suite, so a separate workflow_dispatch `test` check is not enough.
+# https://docs.github.com/en/rest/actions/workflow-runs#approve-a-workflow-run-for-a-fork-pull-request
+repo="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
+head_sha="$(git rev-parse HEAD)"
+run_id=""
+for _ in $(seq 1 15); do
+  run_id="$(
+    gh run list --workflow CI --event pull_request --branch "$branch" --limit 10 \
+      --json databaseId,headSha \
+      --jq "[.[] | select(.headSha == \"${head_sha}\")][0].databaseId // empty"
+  )"
+  if [ -n "$run_id" ]; then
+    break
+  fi
+  sleep 2
+done
+
+if [ -z "$run_id" ]; then
+  echo "Timed out waiting for the pull_request CI run on ${head_sha}" >&2
+  exit 1
+fi
+
+if ! gh api --method POST "repos/${repo}/actions/runs/${run_id}/approve" >/dev/null; then
+  echo "Failed to approve CI run ${run_id} for ${pr_url}" >&2
+  exit 1
+fi
+echo "Approved CI run ${run_id}"
 
 # Do not occupy the runner waiting for CI. Auto-merge completes after `test`.
 merged=false
