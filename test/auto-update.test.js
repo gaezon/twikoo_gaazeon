@@ -49,10 +49,9 @@ describe('auto-update pull request step', () => {
     assert.match(script, /gh pr merge "\$pr_url" --merge --auto/)
   })
 
-  it('dispatches CI because GITHUB_TOKEN cannot trigger pull_request workflows', () => {
-    assert.match(script, /gh workflow run CI --ref "\$branch"/)
-    const ci = fs.readFileSync(path.join(__dirname, '../.github/workflows/ci.yml'), 'utf8')
-    assert.match(ci, /workflow_dispatch:/)
+  it('approves the pull_request CI run left in action_required', () => {
+    assert.match(script, /gh run list --workflow CI --event pull_request/)
+    assert.match(script, /actions\/runs\/\$\{run_id\}\/approve/)
   })
 
   it('does not approve pull requests or wait on the runner for CI', () => {

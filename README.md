@@ -16,7 +16,7 @@ This repository includes a GitHub Action workflow (`.github/workflows/auto-updat
 
 1. **Daily Check**: The workflow runs automatically every day at midnight UTC.
 2. **Update Detection**: It checks for new versions of the `twikoo-vercel` dependency.
-3. **Pull Request**: If a new version is found, it updates `package.json` and opens a pull request. If a previous run already pushed the versioned branch, the workflow fetches it first so `--force-with-lease` can reuse that branch. Because [events from `GITHUB_TOKEN` do not start new `pull_request` or `push` workflows](https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow), the updater then dispatches the **CI** workflow against that branch. Auto-merge completes after the required `test` check passes; the updater does not wait on the runner for CI.
+3. **Pull Request**: If a new version is found, it updates `package.json` and opens a pull request. If a previous run already pushed the versioned branch, the workflow fetches it first so `--force-with-lease` can reuse that branch. Pull requests opened with `GITHUB_TOKEN` leave **CI** in `action_required`, so the updater [approves that workflow run](https://docs.github.com/en/rest/actions/workflow-runs#approve-a-workflow-run-for-a-fork-pull-request). Auto-merge completes after the required `test` check passes; the updater does not wait on the runner for CI.
 4. **Deployment**: Merging into `main` triggers a new deployment on Vercel.
 5. **Notifications**: You receive a Telegram notification with the target version, the pull request URL, and an AI-generated summary of the upgrade highlights. A failed upgrade that already found a new version also sends a Telegram failure notice with the workflow run URL.
 
@@ -99,7 +99,7 @@ This also stays a local `gh` command, for the same reason as the ruleset script:
 
 1. **每日检查**：工作流每天 UTC 时间午夜自动运行。
 2. **检测更新**：检查 `twikoo-vercel` 依赖是否有新版本。
-3. **Pull Request**：如果发现新版本，它会更新 `package.json` 并打开 pull request。如果上一次运行已经推过同名分支，工作流会先 fetch，再通过 `--force-with-lease` 复用该分支。因为 [`GITHUB_TOKEN` 产生的事件不会启动新的 `pull_request` 或 `push` 工作流](https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow)，升级工作流会再对该分支 dispatch **CI**。所需的 `test` 检查通过后，自动合并会完成；升级工作流不会在 runner 上等待 CI。
+3. **Pull Request**：如果发现新版本，它会更新 `package.json` 并打开 pull request。如果上一次运行已经推过同名分支，工作流会先 fetch，再通过 `--force-with-lease` 复用该分支。用 `GITHUB_TOKEN` 打开的 pull request 会把 **CI** 留在 `action_required`，所以升级工作流会 [批准这次 workflow run](https://docs.github.com/en/rest/actions/workflow-runs#approve-a-workflow-run-for-a-fork-pull-request)。所需的 `test` 检查通过后，自动合并会完成；升级工作流不会在 runner 上等待 CI。
 4. **部署**：合并到 `main` 后会触发 Vercel 的新部署。
 5. **通知**：您会收到 Telegram 通知，其中会包含目标版本号、pull request 链接，以及 AI 生成的升级重点摘要。如果已经检测到新版本但后续步骤失败，还会发送一条带工作流运行链接的失败通知。
 
