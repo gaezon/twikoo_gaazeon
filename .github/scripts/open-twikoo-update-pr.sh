@@ -71,6 +71,12 @@ if ! gh pr merge "$pr_url" --merge --auto; then
   exit 1
 fi
 
+# Events created with GITHUB_TOKEN do not start `pull_request` or `push`
+# workflows. Dispatch CI onto this branch so the required `test` check exists
+# and auto-merge can complete.
+# https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
+gh workflow run CI --ref "$branch"
+
 # Do not occupy the runner waiting for CI. Auto-merge completes after `test`.
 merged=false
 state="$(gh pr view "$pr_url" --json state --jq .state)"
