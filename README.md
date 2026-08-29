@@ -16,9 +16,9 @@ This repository includes a GitHub Action workflow (`.github/workflows/auto-updat
 
 1. **Daily Check**: The workflow runs automatically every day at midnight UTC.
 2. **Update Detection**: It checks for new versions of the `twikoo-vercel` dependency.
-3. **Pull Request**: If a new version is found, it updates `package.json` and opens a pull request. Auto-merge completes after the required `test` check passes.
+3. **Pull Request**: If a new version is found, it updates `package.json` and opens a pull request. If a previous run already pushed the versioned branch, the workflow fetches it first so `--force-with-lease` can reuse that branch. Auto-merge completes after the required `test` check passes; the updater does not wait on the runner for CI.
 4. **Deployment**: Merging into `main` triggers a new deployment on Vercel.
-5. **Notifications**: You receive a Telegram notification with the target version, the pull request URL, and an AI-generated summary of the upgrade highlights.
+5. **Notifications**: You receive a Telegram notification with the target version, the pull request URL, and an AI-generated summary of the upgrade highlights. A failed upgrade that already found a new version also sends a Telegram failure notice with the workflow run URL.
 
 #### Stale Repository Warning
 
@@ -62,13 +62,14 @@ You can manually trigger the update check at any time:
 - The `test` check from the **CI** workflow must pass, and the branch must be up to date with `main`.
 - Approving reviews are not required, so a single maintainer or an auto-merge bot PR can land after CI.
 
-GitHub does not let the Actions app bypass rulesets on a user-owned repository, so auto-updates open a pull request instead of pushing `main`. Re-apply the ruleset locally after editing the JSON:
+GitHub does not let the Actions app bypass rulesets on a user-owned repository, so auto-updates open a pull request instead of pushing `main`. The default `GITHUB_TOKEN` also cannot create that pull request unless [Actions is allowed to create and approve pull requests](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-permissions-for-your-repository#preventing-github-actions-from-creating-or-approving-pull-requests). Re-apply the ruleset and auto-update settings locally after editing the JSON:
 
 ```bash
 bash .github/scripts/apply-ruleset.sh
+bash .github/scripts/apply-auto-update-settings.sh
 ```
 
-This stays a local `gh` command. Applying a ruleset needs repository Administration access, and [anyone with write access can read repository Actions secrets](https://docs.github.com/en/actions/reference/security/secure-use) and [run `workflow_dispatch` workflows](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow). An admin PAT must not be stored as a repository secret.
+`apply-auto-update-settings.sh` keeps default workflow permissions at `read` (jobs still request write where needed), turns on Actions pull-request creation, and keeps auto-merge enabled. These stay local `gh` commands. Applying a ruleset or Actions permission needs repository Administration access, and [anyone with write access can read repository Actions secrets](https://docs.github.com/en/actions/reference/security/secure-use) and [run `workflow_dispatch` workflows](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow). An admin PAT must not be stored as a repository secret.
 
 ### Push Protection
 
@@ -98,9 +99,9 @@ This also stays a local `gh` command, for the same reason as the ruleset script:
 
 1. **每日检查**：工作流每天 UTC 时间午夜自动运行。
 2. **检测更新**：检查 `twikoo-vercel` 依赖是否有新版本。
-3. **Pull Request**：如果发现新版本，它会更新 `package.json` 并打开 pull request。所需的 `test` 检查通过后，自动合并会完成。
+3. **Pull Request**：如果发现新版本，它会更新 `package.json` 并打开 pull request。如果上一次运行已经推过同名分支，工作流会先 fetch，再通过 `--force-with-lease` 复用该分支。所需的 `test` 检查通过后，自动合并会完成；升级工作流不会在 runner 上等待 CI。
 4. **部署**：合并到 `main` 后会触发 Vercel 的新部署。
-5. **通知**：您会收到 Telegram 通知，其中会包含目标版本号、pull request 链接，以及 AI 生成的升级重点摘要。
+5. **通知**：您会收到 Telegram 通知，其中会包含目标版本号、pull request 链接，以及 AI 生成的升级重点摘要。如果已经检测到新版本但后续步骤失败，还会发送一条带工作流运行链接的失败通知。
 
 #### 仓库活跃度警告
 
@@ -144,13 +145,14 @@ GitHub 会自动禁用 60 天未活跃仓库的定时工作流。为了防止这
 - 必须通过 **CI** 工作流中的 `test` 检查，并且分支需要与 `main` 保持同步。
 - 不要求人工批准，因此单独维护者或开启自动合并的机器人 PR 可以在 CI 通过后合入。
 
-GitHub 不允许在用户个人仓库里把 Actions 应用加入 ruleset bypass，所以自动更新会打开 pull request，而不是直接推送 `main`。修改 JSON 后在本地重新应用规则集：
+GitHub 不允许在用户个人仓库里把 Actions 应用加入 ruleset bypass，所以自动更新会打开 pull request，而不是直接推送 `main`。默认 `GITHUB_TOKEN` 也不能创建该 pull request，除非打开 [允许 GitHub Actions 创建和批准 pull request](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-permissions-for-your-repository#preventing-github-actions-from-creating-or-approving-pull-requests)。修改 JSON 后在本地重新应用规则集和自动更新设置：
 
 ```bash
 bash .github/scripts/apply-ruleset.sh
+bash .github/scripts/apply-auto-update-settings.sh
 ```
 
-这必须是本地 `gh` 命令。应用 ruleset 需要仓库 Administration 权限，而 [拥有 write 权限的人可以读取仓库 Actions secrets](https://docs.github.com/en/actions/reference/security/secure-use)，也可以 [手动运行 `workflow_dispatch` 工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)。Admin PAT 不能作为 repository secret 存放。
+`apply-auto-update-settings.sh` 会把默认 workflow 权限保持为 `read`（需要写权限的 job 仍会单独申请），打开 Actions 创建 pull request 的能力，并保持自动合并开启。这些都必须是本地 `gh` 命令。应用 ruleset 或 Actions 权限需要仓库 Administration 权限，而 [拥有 write 权限的人可以读取仓库 Actions secrets](https://docs.github.com/en/actions/reference/security/secure-use)，也可以 [手动运行 `workflow_dispatch` 工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)。Admin PAT 不能作为 repository secret 存放。
 
 ### Push Protection
 

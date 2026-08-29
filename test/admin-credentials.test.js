@@ -30,7 +30,7 @@ describe('admin credentials stay off Actions', () => {
       )
       assert.doesNotMatch(
         file.text,
-        /apply-(ruleset|push-protection)\.sh/
+        /apply-(ruleset|push-protection|auto-update-settings)\.sh/
       )
     }
   })
