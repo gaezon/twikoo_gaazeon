@@ -58,11 +58,15 @@ describe('auto-update pull request step', () => {
     assert.match(script, /actions\/runs\/\$\{run_id\}\/approve/)
   })
 
-  it('does not approve pull requests or wait on the runner for CI', () => {
+  it('does not approve pull request reviews', () => {
     assert.doesNotMatch(script, /gh pr review/)
     assert.doesNotMatch(script, /--approve/)
-    assert.doesNotMatch(script, /sleep 10/)
-    assert.doesNotMatch(script, /seq 1 36/)
+  })
+
+  it('waits for the approved CI run then dispatches Vercel deploy', () => {
+    assert.match(script, /gh run view "\$run_id" --json status,conclusion/)
+    assert.match(script, /gh run watch "\$run_id" --exit-status/)
+    assert.match(script, /gh workflow run "Deploy Twikoo to Vercel" --ref main/)
   })
 
   it('sends a failure Telegram notice after a detected update fails', () => {
