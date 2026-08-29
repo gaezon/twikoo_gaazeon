@@ -69,7 +69,7 @@ bash .github/scripts/apply-ruleset.sh
 bash .github/scripts/apply-auto-update-settings.sh
 ```
 
-`apply-auto-update-settings.sh` keeps default workflow permissions at `read` (jobs still request write where needed), turns on Actions pull-request creation, and keeps auto-merge enabled. These stay local `gh` commands. Applying a ruleset or Actions permission needs repository Administration access, and [anyone with write access can read repository Actions secrets](https://docs.github.com/en/actions/reference/security/secure-use) and [run `workflow_dispatch` workflows](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow). An admin PAT must not be stored as a repository secret.
+`apply-auto-update-settings.sh` keeps default workflow permissions at `read` (jobs still request write where needed), turns on Actions pull-request creation, keeps auto-merge enabled, and [deletes head branches after merge](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-the-automatic-deletion-of-branches). These stay local `gh` commands. Applying a ruleset or Actions permission needs repository Administration access, and [anyone with write access can read repository Actions secrets](https://docs.github.com/en/actions/reference/security/secure-use) and [run `workflow_dispatch` workflows](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow). An admin PAT must not be stored as a repository secret.
 
 ### Push Protection
 
@@ -152,7 +152,7 @@ bash .github/scripts/apply-ruleset.sh
 bash .github/scripts/apply-auto-update-settings.sh
 ```
 
-`apply-auto-update-settings.sh` 会把默认 workflow 权限保持为 `read`（需要写权限的 job 仍会单独申请），打开 Actions 创建 pull request 的能力，并保持自动合并开启。这些都必须是本地 `gh` 命令。应用 ruleset 或 Actions 权限需要仓库 Administration 权限，而 [拥有 write 权限的人可以读取仓库 Actions secrets](https://docs.github.com/en/actions/reference/security/secure-use)，也可以 [手动运行 `workflow_dispatch` 工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)。Admin PAT 不能作为 repository secret 存放。
+`apply-auto-update-settings.sh` 会把默认 workflow 权限保持为 `read`（需要写权限的 job 仍会单独申请），打开 Actions 创建 pull request 的能力，保持自动合并开启，并 [在合并后删除 head 分支](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-the-automatic-deletion-of-branches)。这些都必须是本地 `gh` 命令。应用 ruleset 或 Actions 权限需要仓库 Administration 权限，而 [拥有 write 权限的人可以读取仓库 Actions secrets](https://docs.github.com/en/actions/reference/security/secure-use)，也可以 [手动运行 `workflow_dispatch` 工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)。Admin PAT 不能作为 repository secret 存放。
 
 ### Push Protection
 

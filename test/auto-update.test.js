@@ -21,9 +21,13 @@ describe('auto-update workflow permissions', () => {
     assert.equal(workflowPermissions.can_approve_pull_request_reviews, true)
   })
 
-  it('keeps pull request auto-merge enabled', () => {
+  it('keeps pull request auto-merge enabled and deletes merged head branches', () => {
     assert.equal(autoMerge.allow_auto_merge, true)
-    assert.deepEqual(Object.keys(autoMerge), ['allow_auto_merge'])
+    assert.equal(autoMerge.delete_branch_on_merge, true)
+    assert.deepEqual(Object.keys(autoMerge).sort(), [
+      'allow_auto_merge',
+      'delete_branch_on_merge'
+    ])
   })
 
   it('requests write access for contents, pull requests, and workflow dispatch', () => {
@@ -46,7 +50,7 @@ describe('auto-update pull request step', () => {
 
   it('creates a pull request and enables auto-merge', () => {
     assert.match(script, /gh pr create/)
-    assert.match(script, /gh pr merge "\$pr_url" --merge --auto/)
+    assert.match(script, /gh pr merge "\$pr_url" --merge --auto --delete-branch/)
   })
 
   it('approves the pull_request CI run left in action_required', () => {

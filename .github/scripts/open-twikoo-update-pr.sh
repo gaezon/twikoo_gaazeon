@@ -65,7 +65,7 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
   echo "url=$pr_url" >> "$GITHUB_OUTPUT"
 fi
 
-if ! gh pr merge "$pr_url" --merge --auto; then
+if ! gh pr merge "$pr_url" --merge --auto --delete-branch; then
   echo "Failed to enable auto-merge. Enable it on the repository, then re-run this workflow." >&2
   echo "Apply locally: bash .github/scripts/apply-auto-update-settings.sh" >&2
   exit 1
