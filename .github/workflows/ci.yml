@@ -5,9 +5,9 @@ on:
   push:
     branches:
       - main
-  # GITHUB_TOKEN cannot trigger `pull_request` workflows (GitHub suppresses
-  # recursive runs). Auto-update therefore dispatches CI against the upgrade
-  # branch after opening the PR.
+  # Manual runs, and a fallback if a GITHUB_TOKEN pull request never starts CI.
+  # Auto-update approves the pull_request run instead of dispatching this
+  # workflow, because GitHub still waits on that action_required suite.
   # https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
   workflow_dispatch:
 

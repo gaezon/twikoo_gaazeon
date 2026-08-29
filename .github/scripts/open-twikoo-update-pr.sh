@@ -101,14 +101,57 @@ if ! gh api --method POST "repos/${repo}/actions/runs/${run_id}/approve" >/dev/n
 fi
 echo "Approved CI run ${run_id}"
 
-# Do not occupy the runner waiting for CI. Auto-merge completes after `test`.
-merged=false
-state="$(gh pr view "$pr_url" --json state --jq .state)"
-if [ "$state" = MERGED ]; then
-  merged=true
+# Merges authenticated with GITHUB_TOKEN do not start `push` workflows, so
+# neither CI nor the Vercel deploy would run on `main`. Wait for the approved
+# check, then dispatch deploy after auto-merge lands.
+# https://docs.github.com/en/actions/using-workflows/triggering-a-workflow#triggering-a-workflow-from-a-workflow
+# Approval restarts an `action_required` run; wait until jobs actually start
+# before `gh run watch`, otherwise it can exit on the previous conclusion.
+for _ in $(seq 1 20); do
+  status="$(gh run view "$run_id" --json status,conclusion --jq '[.status, .conclusion] | join(" ")')"
+  case "$status" in
+    "in_progress "*|"queued "*|"pending "*|"waiting "*|"completed success")
+      break
+      ;;
+    "completed action_required"|"completed "|"completed null")
+      sleep 2
+      ;;
+    "completed "*)
+      echo "CI run ${run_id} concluded ${status} for ${pr_url}" >&2
+      exit 1
+      ;;
+    *)
+      sleep 2
+      ;;
+  esac
+done
+
+if ! gh run watch "$run_id" --exit-status; then
+  echo "CI run ${run_id} failed for ${pr_url}" >&2
+  exit 1
 fi
+
+merged=false
+for _ in $(seq 1 12); do
+  state="$(gh pr view "$pr_url" --json state --jq .state)"
+  if [ "$state" = MERGED ]; then
+    merged=true
+    break
+  fi
+  if [ "$state" = CLOSED ]; then
+    break
+  fi
+  sleep 5
+done
 
 echo "merged=$merged"
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
   echo "merged=$merged" >> "$GITHUB_OUTPUT"
 fi
+
+if [ "$merged" != true ]; then
+  echo "Pull request did not merge after CI passed: ${pr_url}" >&2
+  exit 1
+fi
+
+gh workflow run "Deploy Twikoo to Vercel" --ref main
