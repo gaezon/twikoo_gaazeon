@@ -26,7 +26,8 @@ describe('auto-update workflow permissions', () => {
     assert.deepEqual(Object.keys(autoMerge), ['allow_auto_merge'])
   })
 
-  it('requests write access only for contents and pull requests', () => {
+  it('requests write access for contents, pull requests, and workflow dispatch', () => {
+    assert.match(workflow, /actions: write/)
     assert.match(workflow, /contents: write/)
     assert.match(workflow, /pull-requests: write/)
   })
@@ -46,6 +47,12 @@ describe('auto-update pull request step', () => {
   it('creates a pull request and enables auto-merge', () => {
     assert.match(script, /gh pr create/)
     assert.match(script, /gh pr merge "\$pr_url" --merge --auto/)
+  })
+
+  it('dispatches CI because GITHUB_TOKEN cannot trigger pull_request workflows', () => {
+    assert.match(script, /gh workflow run CI --ref "\$branch"/)
+    const ci = fs.readFileSync(path.join(__dirname, '../.github/workflows/ci.yml'), 'utf8')
+    assert.match(ci, /workflow_dispatch:/)
   })
 
   it('does not approve pull requests or wait on the runner for CI', () => {
