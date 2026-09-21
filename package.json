@@ -5,6 +5,11 @@
   "dependencies": {
     "twikoo-vercel": "2.0.3"
   },
+  "overrides": {
+    "tencentcloud-sdk-nodejs-common": {
+      "uuid": "11.1.1"
+    }
+  },
   "engines": {
     "node": "24.x"
   }
