@@ -46,6 +46,16 @@ describe('getAllowedOrigin', () => {
   it('supports wildcard * whitelist', () => {
     assert.equal(getAllowedOrigin('https://any-site.org', '*'), '*')
   })
+
+  it('supports scoped wildcard labels for Vercel preview origins', () => {
+    const pattern = 'https://astro-paper-blog-*-996gdufsicus-projects.vercel.app'
+    const previewOrigin = 'https://astro-paper-blog-54o1eni05-996gdufsicus-projects.vercel.app'
+
+    assert.equal(getAllowedOrigin(previewOrigin, pattern), previewOrigin)
+    assert.equal(getAllowedOrigin('https://astro-paper-blog-54o1eni05-other-team.vercel.app', pattern), '')
+    assert.equal(getAllowedOrigin('http://astro-paper-blog-54o1eni05-996gdufsicus-projects.vercel.app', pattern), '')
+    assert.equal(getAllowedOrigin('https://astro-paper-blog-54o1eni05-996gdufsicus-projects.vercel.app/path', pattern), '')
+  })
 })
 
 describe('setCorsHeaders', () => {
