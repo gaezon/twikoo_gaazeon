@@ -8,6 +8,10 @@
 
 This repository contains the configuration for deploying [Twikoo](https://twikoo.js.org/) on Vercel.
 
+### Vercel Runtime Configuration
+
+The `twikoo-vercel` 2.x adapter requires `MONGODB_URI` in the Vercel project environment (Production, and Preview if you use it). This is separate from the `VERCEL_*` GitHub Actions secrets below. Redeploy after adding or changing the variable. The repository pins the Vercel runtime to Node.js `24.x` through `package.json`.
+
 ### Automatic Updates
 
 This repository includes a GitHub Action workflow (`.github/workflows/auto-update.yml`) that automatically keeps your Twikoo instance up to date.
@@ -90,6 +94,10 @@ This also stays a local `gh` command, for the same reason as the ruleset script:
 ## 中文
 
 本仓库包含在 Vercel 上部署 [Twikoo](https://twikoo.js.org/) 的配置。
+
+### Vercel 运行时配置
+
+`twikoo-vercel` 2.x 适配器要求在 Vercel 项目环境变量中配置 `MONGODB_URI`（Production；如果使用 Preview，也请配置对应环境）。它与下方 GitHub Actions 的 `VERCEL_*` 密钥是两套配置。新增或修改后请重新部署。本仓库通过 `package.json` 将 Vercel 运行时固定为 Node.js `24.x`。
 
 ### 自动更新
 

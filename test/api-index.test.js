@@ -1,6 +1,14 @@
 const { describe, it, beforeEach, afterEach } = require('node:test')
 const assert = require('node:assert/strict')
 const handler = require('../api/index')
+const twikoo = require('twikoo-vercel')
+
+describe('twikoo-vercel adapter compatibility', () => {
+  it('keeps a callable CommonJS handler and Vercel factory export', () => {
+    assert.equal(typeof twikoo, 'function')
+    assert.equal(typeof twikoo.createVercelFunc, 'function')
+  })
+})
 
 describe('api/index handler', () => {
   const originalEnv = process.env
