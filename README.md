@@ -12,6 +12,16 @@ This repository contains the configuration for deploying [Twikoo](https://twikoo
 
 The `twikoo-vercel` 2.x adapter requires `MONGODB_URI` in the Vercel project environment (Production, and Preview if you use it). This is separate from the `VERCEL_*` GitHub Actions secrets below. Redeploy after adding or changing the variable. The repository pins the Vercel runtime to Node.js `24.x` through `package.json`.
 
+### CORS Origin Configuration
+
+The API uses a deny-by-default CORS policy. Set `CORS_ALLOW_ORIGIN` separately in every Vercel environment that serves the API. Values are comma-separated origins without paths. Exact origins are supported, as well as `*` inside a hostname label for rotating Vercel deployment URLs. For example:
+
+```text
+CORS_ALLOW_ORIGIN=https://blog.gaazeon.com,https://astro-paper-blog-*-996gdufsicus-projects.vercel.app
+```
+
+The scoped wildcard above matches only one hostname label and the fixed project/team suffix; it does not enable arbitrary cross-origin access. A standalone `*` remains the intentionally public configuration. Redeploy the API after changing this variable because existing deployments keep their previous environment snapshot.
+
 ### Automatic Updates
 
 This repository includes a GitHub Action workflow (`.github/workflows/auto-update.yml`) that automatically keeps your Twikoo instance up to date.
@@ -98,6 +108,16 @@ This also stays a local `gh` command, for the same reason as the ruleset script:
 ### Vercel 运行时配置
 
 `twikoo-vercel` 2.x 适配器要求在 Vercel 项目环境变量中配置 `MONGODB_URI`（Production；如果使用 Preview，也请配置对应环境）。它与下方 GitHub Actions 的 `VERCEL_*` 密钥是两套配置。新增或修改后请重新部署。本仓库通过 `package.json` 将 Vercel 运行时固定为 Node.js `24.x`。
+
+### CORS 来源配置
+
+API 默认拒绝未列入白名单的跨域请求。请在实际提供 API 的每个 Vercel 环境中分别配置 `CORS_ALLOW_ORIGIN`。多个来源用英文逗号分隔，值中不要包含路径；除了精确来源，也支持在主机名标签中使用 `*`，适合 Vercel 部署地址不断变化的场景。例如：
+
+```text
+CORS_ALLOW_ORIGIN=https://blog.gaazeon.com,https://astro-paper-blog-*-996gdufsicus-projects.vercel.app
+```
+
+上面的受限通配符只匹配一个主机名标签，并且要求项目/团队后缀完全一致，不会开放任意跨域访问。单独使用 `*` 仍表示有意公开 API。修改变量后必须重新部署 API，因为已有部署会继续使用修改前的环境变量快照。
 
 ### 自动更新
 
