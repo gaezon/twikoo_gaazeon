@@ -7,7 +7,8 @@ const {
   MAX_AGE,
   getAllowedOrigin,
   setCorsHeaders,
-  handleCors
+  handleCors,
+  withCorsHeaderGuard
 } = require('../lib/cors')
 
 describe('getAllowedOrigin', () => {
@@ -185,6 +186,27 @@ describe('handleCors', () => {
     assert.equal(response.headers['Vary'], 'Origin')
     assert.equal(response.headers['Cache-Control'], 'no-store')
     assert.equal(response.headers['Access-Control-Allow-Origin'], 'https://example.com')
+  })
+})
+
+describe('withCorsHeaderGuard', () => {
+  it('blocks downstream Access-Control headers while preserving other response writes', () => {
+    const headers = {}
+    const response = {
+      setHeader (key, value) {
+        headers[key] = value
+      }
+    }
+    const guardedResponse = withCorsHeaderGuard(response)
+
+    guardedResponse
+      .setHeader('Access-Control-Allow-Origin', 'https://twikoo.example')
+      .setHeader('X-Response-Header', 'preserved')
+      .setHeader('access-control-allow-credentials', 'true')
+
+    assert.deepEqual(headers, {
+      'X-Response-Header': 'preserved'
+    })
   })
 })
 
