@@ -3,7 +3,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "twikoo-vercel": "2.0.3"
+    "twikoo-vercel": "2.0.8"
   },
   "overrides": {
     "tencentcloud-sdk-nodejs-common": {
