@@ -132,7 +132,10 @@ if ! gh run watch "$run_id" --exit-status; then
 fi
 
 merged=false
-for _ in $(seq 1 12); do
+# Auto-merge can lag behind the successful check by more than a minute.
+# Allow five minutes, including a final state check after the last sleep.
+merge_attempts=61
+for attempt in $(seq 1 "$merge_attempts"); do
   state="$(gh pr view "$pr_url" --json state --jq .state)"
   if [ "$state" = MERGED ]; then
     merged=true
@@ -141,7 +144,9 @@ for _ in $(seq 1 12); do
   if [ "$state" = CLOSED ]; then
     break
   fi
-  sleep 5
+  if [ "$attempt" -lt "$merge_attempts" ]; then
+    sleep 5
+  fi
 done
 
 echo "merged=$merged"
@@ -150,7 +155,9 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
 fi
 
 if [ "$merged" != true ]; then
-  echo "Pull request did not merge after CI passed: ${pr_url}" >&2
+  echo "Pull request did not merge after CI passed (state=${state}): ${pr_url}" >&2
+  gh pr view "$pr_url" --json state,mergeStateStatus,reviewDecision,statusCheckRollup >&2 || true
+  echo "After the PR merges, run the Deploy Twikoo to Vercel workflow on main to finish the upgrade." >&2
   exit 1
 fi
 
